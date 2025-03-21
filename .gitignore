@@ -1,0 +1,33 @@
+# Puzzle database files
+puzzles/*.zst
+puzzles/*.csv
+*.zst
+*.csv.zst
+
+# LaTeX output files
+*.tex
+*.aux
+*.log
+*.out
+*.pdf
+
+# Python cache files
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Environment and configuration
+.env
+.venv
+env/
+venv/
+ENV/
+
+# IDE files
+.idea/
+.vscode/
+*.swp
+*.swo 
