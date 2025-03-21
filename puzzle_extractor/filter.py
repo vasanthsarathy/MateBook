@@ -93,6 +93,9 @@ class PuzzleFilter:
         """
         processed = puzzle.copy()  # Create a copy to avoid modifying the original
         
+        # Store the mate-in value in the processed puzzle
+        processed["mate_in"] = mate_in
+        
         fen = puzzle.get("fen", "")
         moves = puzzle.get("moves", [])
         

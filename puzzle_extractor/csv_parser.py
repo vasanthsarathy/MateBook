@@ -26,7 +26,8 @@ class PuzzleCSVParser:
         mate_in: Optional[int] = None, 
         count: int = 20,
         min_rating: Optional[int] = None,
-        max_rating: Optional[int] = None
+        max_rating: Optional[int] = None,
+        mate_values: Optional[List[int]] = None
     ) -> List[Dict[str, Any]]:
         """
         Fetch puzzles from the CSV database.
@@ -36,6 +37,7 @@ class PuzzleCSVParser:
             count: Maximum number of puzzles to return
             min_rating: Minimum puzzle rating (optional)
             max_rating: Maximum puzzle rating (optional)
+            mate_values: List of mate-in values for mixed sets (overrides mate_in)
             
         Returns:
             List of puzzle dictionaries
@@ -48,10 +50,15 @@ class PuzzleCSVParser:
         elif max_rating is not None:
             rating_range_str = f" with rating at most {max_rating}"
             
-        logger.info(f"Fetching {count} puzzles{rating_range_str} from CSV database")
+        # Use mate_values if provided, otherwise use the single mate_in value
+        if mate_values:
+            theme_to_match = [f"mateIn{m}" for m in mate_values]
+            logger.info(f"Fetching {count} puzzles with mate-in values {mate_values}{rating_range_str} from CSV database")
+        else:
+            theme_to_match = f"mateIn{mate_in}" if mate_in else None
+            logger.info(f"Fetching {count} puzzles{rating_range_str} from CSV database")
         
         puzzles = []
-        theme_to_match = f"mateIn{mate_in}" if mate_in else None
         
         try:
             with open(self.csv_path, 'r', encoding='utf-8') as file:
