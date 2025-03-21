@@ -174,8 +174,13 @@ def main() -> int:
             puzzles=all_puzzles,
             output_file=args.output,
             title=args.title,
+            mate_in=args.mate,
             hide_mate_count=True if (len(mate_values) > 1) else False,
-            hide_ratings=args.hide_ratings
+            hide_ratings=args.hide_ratings,
+            min_rating=args.min_rating,
+            max_rating=args.max_rating,
+            progressive=args.progressive,
+            mate_values=mate_values
         )
         
         logger.info(f"Successfully generated LaTeX document: {args.output}")
