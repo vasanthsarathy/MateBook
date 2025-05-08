@@ -1,14 +1,21 @@
-# MateBook - Lichess Puzzle Extractor
+# MateBook - Chess Puzzle Generator
 
-A command-line tool to extract chess puzzles from a Lichess puzzle database
-and generate a LaTeX document with mate-in-N puzzles.
+A command-line tool to extract chess puzzles from the Lichess database and generate LaTeX documents with tactical and mate-in-N puzzles.
 
 ## Features
 
-- Extract puzzles for mate-in-1, mate-in-2, or any value of N
-- Create mixed puzzle sets with different mate-in values
-- Arrange puzzles in progressive difficulty order
-- Filter puzzles by rating
+### Puzzle Types
+
+- Mate-in-N puzzles (1 to N moves)
+- Tactical puzzles with specific themes (fork, pin, discovery, etc.)
+- Mixed puzzle sets combining different tactical motifs
+- Solution length specification (K-ply)
+
+### Filtering & Organization
+
+- Filter puzzles by rating range
+- Arrange puzzles in progressive difficulty
+- Mix mating and tactical puzzles with custom ratios
 - Show or hide puzzle ratings
 - Generate print-ready PDFs with 4 puzzles per page
 - Include solutions on the last page
@@ -32,77 +39,92 @@ cd matebook
 
 ```
 mkdir -p puzzles
-wget -O puzzles/lichess_db_puzzle.csv https://database.lichess.org/lichess_db_puzzle.csv.zst
+wget -O puzzles/lichess_db_puzzle.csv.zst https://database.lichess.org/lichess_db_puzzle.csv.zst
 unzstd puzzles/lichess_db_puzzle.csv.zst
 ```
 
 ## Usage
 
-### Basic Usage
-
-```
-python lichess_puzzle_extractor.py -m 2 -n 10
-```
-
-This will generate a document with 10 mate-in-2 puzzles.
-
 ### Command-Line Options
 
-| Option                  | Description                                                  |
-| ----------------------- | ------------------------------------------------------------ |
-| `-n, --number NUMBER`   | Number of puzzles to extract (default: 20)                   |
-| `-o, --output OUTPUT`   | Output filename (default: chess_puzzles.tex)                 |
-| `-t, --title TITLE`     | Document title (default: based on puzzle type)               |
-| `-f, --file FILE`       | Path to the Lichess puzzle database CSV file                 |
-| `-r1, --min-rating MIN` | Minimum puzzle rating (optional)                             |
-| `-r2, --max-rating MAX` | Maximum puzzle rating (optional)                             |
-| `-p, --progressive`     | Arrange puzzles in progressive difficulty (easier to harder) |
-| `--hide-ratings`        | Hide puzzle ratings in the output                            |
+#### Basic Options
 
-You must specify one of the following mate puzzle options:
+| Option                  | Description                                    |
+| ----------------------- | ---------------------------------------------- |
+| `-n, --number NUMBER`   | Number of puzzles to extract (default: 20)     |
+| `-o, --output OUTPUT`   | Output filename (default: chess_puzzles.tex)   |
+| `-t, --title TITLE`     | Document title (default: based on puzzle type) |
+| `-f, --file FILE`       | Path to the Lichess puzzle database CSV file   |
+| `-r1, --min-rating MIN` | Minimum puzzle rating (optional)               |
+| `-r2, --max-rating MAX` | Maximum puzzle rating (optional)               |
+| `-p, --progressive`     | Arrange puzzles in progressive difficulty      |
+| `--hide-ratings`        | Hide puzzle ratings in the output              |
 
-| Option                     | Description                                                         |
-| -------------------------- | ------------------------------------------------------------------- |
-| `-m, --mate M`             | Generate mate-in-M puzzles (e.g., 2 for mate-in-2)                  |
-| `-mx, --mate-mix LIST`     | Generate mixed mate puzzles (e.g., '1,2,3' for a mix)               |
-| `-mlt, --mate-less-than N` | Generate all mate puzzles up to N moves (e.g., 3 for mate-in-1,2,3) |
+#### Puzzle Selection Options
+
+You must specify one of the following puzzle type options:
+
+| Option                     | Description                                       |
+| -------------------------- | ------------------------------------------------- |
+| `-m, --mate M`             | Generate mate-in-M puzzles                        |
+| `-mx, --mate-mix LIST`     | Generate mixed mate puzzles (e.g., '1,2,3')       |
+| `-mlt, --mate-less-than N` | Generate all mate puzzles up to N moves           |
+| `-k, --ply K`              | Generate K-ply tactical puzzles                   |
+| `-th, --themes LIST`       | Generate puzzles with specific themes             |
+| `--mix-ratio RATIO`        | Ratio of tactical to mate puzzles (e.g., '70:30') |
+
+#### Available Themes
+
+- `mate`: Checkmate puzzles
+- `fork`: Fork tactics
+- `pin`: Pin tactics
+- `discovery`: Discovered attack
+- `skewer`: Skewer tactics
+- `sacrifice`: Sacrificial tactics
+- `attraction`: Attraction tactics
+- `deflection`: Deflection tactics
+- `interference`: Interference tactics
+- `xRayAttack`: X-ray attack tactics
+- `zugzwang`: Zugzwang tactics
+- `trappedPiece`: Trapped piece tactics
+- `hangingPiece`: Hanging piece tactics
 
 ### Example Commands
 
-1. Generate 12 mate-in-1 puzzles:
+1. Generate 12 mate-in-2 puzzles:
 
-```
-python lichess_puzzle_extractor.py -m 1 -n 12
-```
-
-2. Generate a mix of mate-in-1, mate-in-2, and mate-in-3 puzzles:
-
-```
-python lichess_puzzle_extractor.py -mx "1,2,3" -n 12
+```bash
+python lichess_puzzle_extractor.py -m 2 -n 12
 ```
 
-3. Generate all mate-in puzzles up to 3 moves:
+2. Generate 15 tactical puzzles with 4-ply solutions:
 
-```
-python lichess_puzzle_extractor.py -mlt 3 -n 12
-```
-
-4. Generate puzzles in progressive difficulty order:
-
-```
-python lichess_puzzle_extractor.py -m 2 -n 12 -p
+```bash
+python lichess_puzzle_extractor.py -k 4 -n 15
 ```
 
-5. Generate puzzles with a rating range:
+3. Generate mixed tactical puzzles with specific themes:
 
-```
-python lichess_puzzle_extractor.py -m 2 -n 12 -r1 1500 -r2 2000
+```bash
+python lichess_puzzle_extractor.py -th "fork,pin,discovery" -n 20
 ```
 
-6. Hide puzzle ratings:
+4. Generate a mix of tactical and mate puzzles (70% tactical, 30% mate):
 
+```bash
+python lichess_puzzle_extractor.py -th "fork,pin" -mx "2,3" --mix-ratio 70:30 -n 20
 ```
-python lichess_puzzle_extractor.py -m 2 -n 12 --hide-ratings
+
+5. Generate 4-ply tactical puzzles with rating range:
+
+```bash
+python lichess_puzzle_extractor.py -k 4 -n 15 -r1 1500 -r2 2000
+```
+
+6. Generate progressive difficulty mixed set:
+
+```bash
+python lichess_puzzle_extractor.py -th "fork,pin,discovery" -mx "2,3" --mix-ratio 60:40 -n 20 -p
 ```
 
 ### Build Scripts
@@ -111,15 +133,40 @@ For convenience, you can use the provided scripts:
 
 **Linux/macOS:**
 
-```
-./scripts/run.sh -m 2 -n 12
+```bash
+./scripts/run.sh -k 4 -th "fork,pin" -n 15
 ```
 
 **Windows:**
 
+```bash
+scripts\run.bat -k 4 -th "fork,pin" -n 15
 ```
-scripts\run.bat -m 2 -n 12
-```
+
+## Understanding Puzzle Themes
+
+### Tactical Themes
+
+- **Fork**: A piece attacks two or more enemy pieces simultaneously
+- **Pin**: A piece is unable to move because it would expose a more valuable piece to capture
+- **Discovery**: Moving one piece reveals an attack from another piece
+- **Skewer**: Similar to a pin, but the more valuable piece is in front
+- **Sacrifice**: Giving up material for a tactical advantage
+- **Attraction**: Forcing an enemy piece to move to a disadvantageous square
+- **Deflection**: Forcing an enemy piece away from a key defensive square
+- **Interference**: Blocking an enemy piece's line of attack or defense
+- **X-Ray Attack**: Attacking through an intervening piece
+- **Zugzwang**: The opponent must make a move that weakens their position
+- **Trapped Piece**: A piece has no safe squares to move to
+- **Hanging Piece**: A piece that can be captured without immediate compensation
+
+### Solution Length (Ply)
+
+A ply is a single move by one player. For example:
+
+- 2-ply = 1 full move (White + Black)
+- 4-ply = 2 full moves
+- 6-ply = 3 full moves
 
 ## License
 

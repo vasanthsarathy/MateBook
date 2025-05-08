@@ -7,6 +7,8 @@ import os
 import re
 from typing import List, Dict, Any, Optional
 
+from puzzle_extractor.themes import format_theme_list
+
 logger = logging.getLogger(__name__)
 
 class LaTeXGenerator:
@@ -23,7 +25,9 @@ class LaTeXGenerator:
         min_rating: Optional[int] = None,
         max_rating: Optional[int] = None,
         progressive: bool = False,
-        mate_values: Optional[List[int]] = None
+        mate_values: Optional[List[int]] = None,
+        themes: Optional[List[str]] = None,
+        ply_values: Optional[List[int]] = None
     ) -> None:
         """
         Generate a LaTeX document with the given puzzles.
@@ -39,6 +43,8 @@ class LaTeXGenerator:
             max_rating: Maximum puzzle rating
             progressive: Whether puzzles are arranged in progressive difficulty
             mate_values: List of mate-in values for mixed sets
+            themes: List of tactical themes to include
+            ply_values: List of ply counts for tactical puzzles
         """
         logger.info(f"Generating LaTeX document with {len(puzzles)} puzzles")
         
@@ -52,7 +58,9 @@ class LaTeXGenerator:
             min_rating,
             max_rating,
             progressive,
-            mate_values
+            mate_values,
+            themes,
+            ply_values
         )
         
         # Write to file
@@ -71,7 +79,9 @@ class LaTeXGenerator:
         min_rating: Optional[int] = None,
         max_rating: Optional[int] = None,
         progressive: bool = False,
-        mate_values: Optional[List[int]] = None
+        mate_values: Optional[List[int]] = None,
+        themes: Optional[List[str]] = None,
+        ply_values: Optional[List[int]] = None
     ) -> str:
         """
         Create the LaTeX content for the document.
@@ -86,6 +96,8 @@ class LaTeXGenerator:
             max_rating: Maximum puzzle rating
             progressive: Whether puzzles are arranged in progressive difficulty
             mate_values: List of mate-in values for mixed sets
+            themes: List of tactical themes to include
+            ply_values: List of ply counts for tactical puzzles
             
         Returns:
             LaTeX content as a string
@@ -96,14 +108,14 @@ class LaTeXGenerator:
             r"\usepackage[utf8]{inputenc}",
             r"\usepackage{xskak}",
             r"\usepackage{chessboard}",
-            r"\usepackage{geometry}",
+            r"\usepackage[margin=0.75in]{geometry}",  # Portrait mode with standard margins
             r"\usepackage{multicol}",
             r"\usepackage{titlesec}",
             r"\usepackage{fancyhdr}",
             r"\usepackage{lastpage}",
             r"\usepackage{enumitem}",
+            r"\usepackage{paracol}",  # For better column control
             r"",
-            r"\geometry{margin=0.75in}",
             r"\setlength{\parindent}{0pt}",
             r"\setlength{\parskip}{6pt}",
             r"",
@@ -117,8 +129,17 @@ class LaTeXGenerator:
             r"\renewcommand{\headrulewidth}{0.4pt}",
             r"\renewcommand{\footrulewidth}{0.4pt}",
             r"",
-            r"% Settings for the chess board - increased size",
-            r"\setchessboard{boardfontsize=18pt, showmover=false}",
+            r"% Settings for the chess board",
+            r"\setchessboard{",
+            r"    boardfontsize=16pt,",  # Increased from 12pt to 16pt
+            r"    showmover=true,",
+            r"    moverstyle=square,",
+            r"    label=false,",
+            r"    labelleft=false,",
+            r"    labelbottom=false,",
+            r"    labeltop=false,",
+            r"    labelright=false",
+            r"}",
             r"",
             r"% Format subsection titles (puzzle headings)",
             r"\titleformat*{\subsection}{\centering\normalfont\large\bfseries}",
@@ -133,185 +154,184 @@ class LaTeXGenerator:
             r"",
         ]
         
-        # Update the instructions based on whether we're showing mate-in count
-        if hide_mate_count:
-            instructions = [
-                r"\section*{Instructions}",
-                f"This document contains {len(puzzles)} chess puzzles from Lichess.",
-                r"For each puzzle, find the sequence of moves that leads to checkmate.",
-                r"The exact number of moves required varies for each puzzle.",
-                r"Solutions are provided on the last page.",
-                r"",
-                r"\section*{Puzzle Parameters}",
-                r"\begin{itemize}",
-            ]
-            
-            # Add mate values information
-            if mate_values:
-                instructions.append(f"\\item \\textbf{{Mate-in}}: Mixed set containing mate-in " + ", ".join([str(m) for m in mate_values]))
-            elif mate_in:
-                instructions.append(f"\\item \\textbf{{Mate-in}}: All puzzles are mate-in-{mate_in}")
-            
-            # Add rating range if provided
-            if min_rating and max_rating:
-                instructions.append(f"\\item \\textbf{{Rating range}}: {min_rating} to {max_rating}")
-            elif min_rating:
-                instructions.append(f"\\item \\textbf{{Rating range}}: Minimum {min_rating}")
-            elif max_rating:
-                instructions.append(f"\\item \\textbf{{Rating range}}: Maximum {max_rating}")
-            
-            # Add progressive difficulty info if enabled
-            if progressive:
-                instructions.append(r"\item \textbf{Ordering}: Puzzles are arranged in progressive difficulty (easier to harder)")
-            
-            # Add rating visibility
-            if hide_ratings:
-                instructions.append(r"\item \textbf{Ratings}: Puzzle ratings are hidden")
+        # Create instructions based on puzzle type
+        instructions = [
+            r"\section*{Instructions}",
+            f"This document contains {len(puzzles)} chess puzzles from Lichess.",
+        ]
+        
+        if themes:
+            instructions.append(f"Each puzzle features one or more of the following tactical themes: {format_theme_list(themes)}.")
+        elif ply_values:
+            if len(ply_values) == 1:
+                instructions.append(f"Each puzzle requires {ply_values[0]//2} moves to reach the winning position.")
             else:
-                instructions.append(r"\item \textbf{Ratings}: Puzzle ratings are shown")
-            
-            instructions.extend([
-                r"\end{itemize}",
-                r"",
-                r"\newpage",
-                r"\section*{Puzzles}",
-                r""
-            ])
+                instructions.append(f"Each puzzle requires between {min(ply_values)//2} and {max(ply_values)//2} moves to reach the winning position.")
+        elif mate_values:
+            if len(mate_values) == 1:
+                instructions.append(f"For each puzzle, find the sequence of moves that leads to checkmate in {mate_values[0]} moves.")
+            else:
+                instructions.append("For each puzzle, find the sequence of moves that leads to checkmate. The number of moves required varies.")
+        
+        instructions.extend([
+            "Solutions are provided on the last page.",
+            "",
+            r"\section*{Puzzle Parameters}",
+            r"\begin{itemize}[leftmargin=*]",  # Adjust itemize margins
+        ])
+        
+        # Add puzzle type information
+        if themes:
+            instructions.append(f"\\item \\textbf{{Themes}}: {format_theme_list(themes)}")
+        elif ply_values:
+            if len(ply_values) == 1:
+                instructions.append(f"\\item \\textbf{{Solution length}}: {ply_values[0]//2} moves ({ply_values[0]} ply)")
+            else:
+                instructions.append(f"\\item \\textbf{{Solution length}}: {min(ply_values)//2} to {max(ply_values)//2} moves ({min(ply_values)} to {max(ply_values)} ply)")
+        elif mate_values:
+            if len(mate_values) == 1:
+                instructions.append(f"\\item \\textbf{{Mate-in}}: All puzzles are mate-in-{mate_values[0]}")
+            else:
+                instructions.append(f"\\item \\textbf{{Mate-in}}: Mixed set containing mate-in " + ", ".join([str(m) for m in mate_values]))
+        
+        # Add rating range if provided
+        if min_rating and max_rating:
+            instructions.append(f"\\item \\textbf{{Rating range}}: {min_rating} to {max_rating}")
+        elif min_rating:
+            instructions.append(f"\\item \\textbf{{Rating range}}: Minimum {min_rating}")
+        elif max_rating:
+            instructions.append(f"\\item \\textbf{{Rating range}}: Maximum {max_rating}")
+        
+        # Add progressive difficulty info if enabled
+        if progressive:
+            instructions.append(r"\item \textbf{Ordering}: Puzzles are arranged in progressive difficulty (easier to harder)")
+        
+        # Add rating visibility
+        if hide_ratings:
+            instructions.append(r"\item \textbf{Ratings}: Puzzle ratings are hidden")
         else:
-            instructions = [
-                r"\section*{Instructions}",
-                f"This document contains {len(puzzles)} mate-in-{mate_in} puzzles from Lichess.",
-                r"For each puzzle, find the sequence of moves that leads to checkmate in " + str(mate_in) + r" moves.",
-                r"Solutions are provided on the last page.",
-                r"",
-                r"\newpage",
-                r"\section*{Puzzles}",
-                r""
-            ]
+            instructions.append(r"\item \textbf{Ratings}: Puzzle ratings are shown")
+        
+        instructions.extend([
+            r"\end{itemize}",
+            r"",
+            r"\newpage",
+            r"",
+        ])
         
         latex.extend(instructions)
         
-        # Calculate how many pages we need (4 puzzles per page)
-        total_puzzles = len(puzzles)
-        pages_needed = (total_puzzles + 3) // 4  # Round up to the nearest multiple of 4
-        
-        # Add puzzles, 4 per page in a 2x2 grid
-        for page in range(pages_needed):
-            # Start a new page for each set of 4 puzzles (except the first page)
-            if page > 0:
-                latex.append(r"\newpage")
-            
-            # Instead of using tabular environment, we'll manage the layout more directly
-            latex.append(r"\vspace*{0.2cm}")  # Add some space at the top
-            
-            # Process puzzles for this page
-            for i in range(4):
-                puzzle_index = page * 4 + i
-                if puzzle_index >= total_puzzles:
-                    break
-                    
-                # Determine row and column
-                row = i // 2  # 0 for top row, 1 for bottom row
-                col = i % 2   # 0 for left column, 1 for right column
-                
-                puzzle = puzzles[puzzle_index]
-                puzzle_number = puzzle_index + 1
-                
-                fen = puzzle.get("fen", "")
-                puzzle_id = puzzle.get("id", "")
-                
-                # Determine if this is a white-to-move or black-to-move position
-                is_white_to_move = " w " in fen
-                to_move_text = "White" if is_white_to_move else "Black"
-                
-                # Get player color and rating information
-                rating = puzzle.get("rating", "")
-                rating_info = f"Rating: {rating}" if (rating and not hide_ratings) else ""
-                
-                # Determine the mate-in value for this specific puzzle
-                puzzle_mate_in = puzzle.get("mate_in", mate_in)
-                
-                # Create the puzzle instruction based on whether we're showing mate counts
-                if hide_mate_count:
-                    instruction_text = f"{to_move_text} to move and checkmate"
-                else:
-                    instruction_text = f"{to_move_text} to move and checkmate in {puzzle_mate_in}"
-                
-                # Start a new row if this is the first puzzle in a row
-                if col == 0:
-                    latex.append(r"\noindent\begin{minipage}{0.49\textwidth}")
-                else:
-                    latex.append(r"\begin{minipage}{0.49\textwidth}")
-                
-                # Add the puzzle content
-                latex.append(f"\\subsection*{{Puzzle {puzzle_number}}}")
-                latex.append(r"\begin{center}")
-                latex.append(r"\newgame")
-                latex.append(f"\\fenboard{{{fen}}}")
-                latex.append(r"\chessboard")
-                latex.append(r"\end{center}")
-                
-                # Start a new center environment for the text
-                latex.append(r"\begin{center}")
-                latex.append(f"\\textbf{{{instruction_text}}}")
-                latex.append(r"\\[0.2cm]")
-                
-                # Add puzzle ID and rating
-                if rating_info:
-                    latex.append(f"\\small{{Puzzle ID: {puzzle_id}}} \\quad {rating_info}")
-                else:
-                    latex.append(f"\\small{{Puzzle ID: {puzzle_id}}}")
-                
-                latex.append(r"\end{center}")
-                latex.append(r"\end{minipage}")
-                
-                # Handle column spacing
-                if col == 0:
-                    latex.append(r"\hfill")  # Add horizontal fill between columns
-                elif row == 0 and puzzle_index + 1 < total_puzzles:
-                    # After the first row, add significant vertical space
-                    latex.append(r"\vspace{2.5cm}")  # Slightly reduced vertical space to accommodate larger boards
-                
-                # End the row if this is the last puzzle in a row or the last puzzle overall
-                if col == 1 or puzzle_index + 1 == total_puzzles:
-                    latex.append(r"")  # Empty line for clarity
-            
-            # Add some space at the bottom of the page
-            latex.append(r"\vspace*{0.5cm}")
-        
-        # Add solutions page
+        # Add puzzles in a 2x2 grid using paracol
         latex.extend([
-            r"\newpage",
-            r"\section*{Solutions}",
+            r"\begin{paracol}{2}",
+            r"\setlength{\columnsep}{20pt}",  # Standard column separation
             r"",
-            r"\begin{multicols}{2}",
-            r"\begin{enumerate}"
         ])
         
-        for i, puzzle in enumerate(puzzles, 1):
-            solution = puzzle.get("solution", [])
-            # Escape the "#" symbol in the solution text
-            solution_text = ", ".join([self._escape_chess_notation(move) for move in solution])
+        # Process puzzles in pairs for side-by-side layout
+        for i in range(0, len(puzzles), 2):
+            # First puzzle in the pair
+            latex.extend(self._create_puzzle_section(puzzles[i], i + 1, hide_ratings))
+            latex.append(r"\switchcolumn")  # Switch to second column
             
-            latex.append(f"\\item[{i}.] {solution_text}")
+            # Second puzzle in the pair (if it exists)
+            if i + 1 < len(puzzles):
+                latex.extend(self._create_puzzle_section(puzzles[i + 1], i + 2, hide_ratings))
+                latex.append(r"\switchcolumn")  # Switch back to first column
+            
+            latex.append("")  # Add blank line for spacing
         
         latex.extend([
-            r"\end{enumerate}",
-            r"\end{multicols}",
-            r"\end{document}"
+            r"\end{paracol}",
+            r"",
+            r"\newpage",
+            r"",
+            r"\section*{Solutions}",
+            r"",
+        ])
+        
+        # Add solutions
+        for i, puzzle in enumerate(puzzles, 1):
+            latex.extend(self._create_solution_section(puzzle, i))
+        
+        latex.extend([
+            r"",
+            r"\end{document}",
         ])
         
         return "\n".join(latex)
     
-    def _escape_chess_notation(self, move: str) -> str:
+    def _create_puzzle_section(self, puzzle: Dict[str, Any], puzzle_num: int, hide_ratings: bool) -> List[str]:
         """
-        Escape special LaTeX characters in chess notation.
+        Create the LaTeX content for a single puzzle section.
         
         Args:
-            move: A chess move in algebraic notation
+            puzzle: Puzzle data dictionary
+            puzzle_num: Puzzle number
+            hide_ratings: Whether to hide puzzle ratings
             
         Returns:
-            The move with special characters escaped for LaTeX
+            List of LaTeX lines for the puzzle section
         """
-        # Replace "#" (checkmate) with "\#" (escaped for LaTeX)
-        return move.replace("#", r"\#") 
+        latex = []
+        
+        # Add puzzle number and rating
+        puzzle_header = f"Puzzle {puzzle_num}"
+        if not hide_ratings:
+            rating = puzzle.get("rating", 0)
+            puzzle_header += f" (Rating: {rating})"
+        latex.append(r"\subsection*{" + puzzle_header + r"}")
+        
+        # Add the chess position
+        fen = puzzle.get("fen", "")
+        if fen:
+            # Set mover based on whose turn it is (2 for White, 1 for Black)
+            mover = "2" if "w" in fen else "1"
+            latex.extend([
+                r"\begin{center}",
+                r"\newchessgame",
+                r"\fenboard{" + fen + r"}",
+                r"\chessboard[showmover=true, boardfontsize=16pt]",  # Increased from 12pt to 16pt
+                r"\end{center}"
+            ])
+        
+        latex.append("")  # Add blank line for spacing
+        return latex
+    
+    def _create_solution_section(self, puzzle: Dict[str, Any], puzzle_num: int) -> List[str]:
+        """
+        Create the LaTeX content for a single puzzle's solution.
+        
+        Args:
+            puzzle: Puzzle data dictionary
+            puzzle_num: Puzzle number
+            
+        Returns:
+            List of LaTeX lines for the solution section
+        """
+        latex = []
+        
+        # Add puzzle number
+        latex.append(f"\\textbf{{Puzzle {puzzle_num}:}}")
+        
+        # Add solution moves
+        solution = puzzle.get("solution", [])
+        if solution:
+            latex.append(", ".join(self._escape_chess_notation(move) for move in solution))
+        
+        latex.append("")  # Add blank line for spacing
+        return latex
+    
+    def _escape_chess_notation(self, move: str) -> str:
+        """
+        Escape special characters in chess notation for LaTeX.
+        
+        Args:
+            move: Chess move in algebraic notation
+            
+        Returns:
+            Escaped move string
+        """
+        # Escape special LaTeX characters
+        move = re.sub(r"([#\$%&_\{\}])", r"\\\1", move)
+        return move 

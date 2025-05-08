@@ -22,12 +22,15 @@ class PuzzleCSVParser:
         self.csv_path = csv_path
         
     def fetch_puzzles(
-        self, 
-        mate_in: Optional[int] = None, 
+        self,
+        mate_in: Optional[int] = None,
         count: int = 20,
         min_rating: Optional[int] = None,
         max_rating: Optional[int] = None,
-        mate_values: Optional[List[int]] = None
+        themes: Optional[List[str]] = None,
+        ply_values: Optional[List[int]] = None,
+        mate_values: Optional[List[int]] = None,
+        tactical_ratio: Optional[int] = None
     ) -> List[Dict[str, Any]]:
         """
         Fetch puzzles from the CSV database.
@@ -37,63 +40,63 @@ class PuzzleCSVParser:
             count: Maximum number of puzzles to return
             min_rating: Minimum puzzle rating (optional)
             max_rating: Maximum puzzle rating (optional)
-            mate_values: List of mate-in values for mixed sets (overrides mate_in)
+            themes: List of tactical themes to include
+            ply_values: List of ply counts for tactical puzzles
+            mate_values: List of mate-in values for mixed sets
+            tactical_ratio: Percentage of tactical puzzles in mixed sets
             
         Returns:
             List of puzzle dictionaries
         """
-        rating_range_str = ""
-        if min_rating is not None and max_rating is not None:
-            rating_range_str = f" with rating between {min_rating} and {max_rating}"
-        elif min_rating is not None:
-            rating_range_str = f" with rating at least {min_rating}"
-        elif max_rating is not None:
-            rating_range_str = f" with rating at most {max_rating}"
-            
-        # Use mate_values if provided, otherwise use the single mate_in value
-        if mate_values:
-            theme_to_match = [f"mateIn{m}" for m in mate_values]
-            logger.info(f"Fetching {count} puzzles with mate-in values {mate_values}{rating_range_str} from CSV database")
-        else:
-            theme_to_match = f"mateIn{mate_in}" if mate_in else None
-            logger.info(f"Fetching {count} puzzles{rating_range_str} from CSV database")
+        logger.info(f"Fetching {count} puzzles from CSV database")
         
         puzzles = []
-        
         try:
             with open(self.csv_path, 'r', encoding='utf-8') as file:
                 reader = csv.reader(file)
                 
-                # Skip header if it exists (check first row)
+                # Skip header if it exists
                 first_row = next(reader, None)
                 if first_row and first_row[0].lower() == 'puzzleid':
                     logger.debug("Skipped header row")
                 else:
-                    # If it wasn't a header, process it as data
                     puzzle = self._parse_row(first_row)
-                    if self._matches_criteria(puzzle, theme_to_match, min_rating, max_rating):
+                    if self._matches_criteria(puzzle, mate_in, themes, ply_values, min_rating, max_rating):
                         puzzles.append(puzzle)
                 
-                # Read rows and convert to puzzle dictionaries
+                # Read and filter puzzles
                 for row in reader:
                     if not row:  # Skip empty rows
                         continue
                         
                     puzzle = self._parse_row(row)
-                    
-                    # Check if puzzle matches criteria
-                    if self._matches_criteria(puzzle, theme_to_match, min_rating, max_rating):
+                    if self._matches_criteria(puzzle, mate_in, themes, ply_values, min_rating, max_rating):
                         puzzles.append(puzzle)
                     
-                    # Break if we have enough puzzles (with some buffer)
+                    # Break if we have enough puzzles (with buffer)
                     if len(puzzles) >= count * 3:
                         break
             
-            # Shuffle and limit to requested count
-            random.shuffle(puzzles)
-            puzzles = puzzles[:count * 2]  # Keep some buffer for filtering
+            # Shuffle and select puzzles based on ratios if needed
+            if tactical_ratio is not None and mate_values:
+                tactical_count = (count * tactical_ratio) // 100
+                mate_count = count - tactical_count
+                
+                # Split puzzles into tactical and mate
+                tactical_puzzles = [p for p in puzzles if not any(f"mateIn{m}" in p.get("themes", []) for m in mate_values)]
+                mate_puzzles = [p for p in puzzles if any(f"mateIn{m}" in p.get("themes", []) for m in mate_values)]
+                
+                # Randomly select the required number of each type
+                random.shuffle(tactical_puzzles)
+                random.shuffle(mate_puzzles)
+                
+                puzzles = tactical_puzzles[:tactical_count] + mate_puzzles[:mate_count]
+            else:
+                # Just select the required number of puzzles
+                random.shuffle(puzzles)
+                puzzles = puzzles[:count]
             
-            logger.info(f"Found {len(puzzles)} puzzles in the database")
+            logger.info(f"Found {len(puzzles)} puzzles matching criteria")
             return puzzles
             
         except FileNotFoundError:
@@ -104,35 +107,56 @@ class PuzzleCSVParser:
             return []
     
     def _matches_criteria(
-        self, 
-        puzzle: Dict[str, Any], 
-        theme: Optional[str], 
-        min_rating: Optional[int], 
+        self,
+        puzzle: Dict[str, Any],
+        mate_in: Optional[int],
+        themes: Optional[List[str]],
+        ply_values: Optional[List[int]],
+        min_rating: Optional[int],
         max_rating: Optional[int]
     ) -> bool:
         """
-        Check if a puzzle matches the specified criteria.
+        Check if a puzzle matches all specified criteria.
         
         Args:
             puzzle: The puzzle to check
-            theme: The theme to match (or None)
-            min_rating: Minimum rating (or None)
-            max_rating: Maximum rating (or None)
+            mate_in: Required mate-in-M value
+            themes: Required tactical themes
+            ply_values: List of allowed ply counts
+            min_rating: Minimum rating
+            max_rating: Maximum rating
             
         Returns:
-            True if the puzzle matches all specified criteria, False otherwise
+            True if the puzzle matches all criteria
         """
-        # Check theme
-        if theme and theme not in puzzle.get('themes', []):
-            return False
-            
         # Check rating range
-        rating = puzzle.get('rating', 0)
+        rating = puzzle.get("rating", 0)
         if min_rating is not None and rating < min_rating:
             return False
         if max_rating is not None and rating > max_rating:
             return False
-            
+        
+        # Check themes
+        puzzle_themes = puzzle.get("themes", [])
+        if themes:
+            if not any(theme in puzzle_themes for theme in themes):
+                return False
+        
+        # Check mate-in value
+        if mate_in is not None:
+            mate_theme = f"mateIn{mate_in}"
+            if mate_theme not in puzzle_themes:
+                return False
+        
+        # Check ply count
+        if ply_values is not None:
+            moves = puzzle.get("moves", [])
+            # The first move is the opponent's move that leads to the position
+            # The remaining moves are the solution
+            solution_ply_count = len(moves) - 1
+            if solution_ply_count not in ply_values:
+                return False
+        
         return True
         
     def _parse_row(self, row: List[str]) -> Dict[str, Any]:
