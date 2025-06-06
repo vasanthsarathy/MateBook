@@ -27,7 +27,8 @@ class LaTeXGenerator:
         progressive: bool = False,
         mate_values: Optional[List[int]] = None,
         themes: Optional[List[str]] = None,
-        ply_values: Optional[List[int]] = None
+        ply_values: Optional[List[int]] = None,
+        book_format: bool = False
     ) -> None:
         """
         Generate a LaTeX document with the given puzzles.
@@ -45,6 +46,7 @@ class LaTeXGenerator:
             mate_values: List of mate-in values for mixed sets
             themes: List of tactical themes to include
             ply_values: List of ply counts for tactical puzzles
+            book_format: Whether to use pocket book format
         """
         logger.info(f"Generating LaTeX document with {len(puzzles)} puzzles")
         
@@ -60,7 +62,8 @@ class LaTeXGenerator:
             progressive,
             mate_values,
             themes,
-            ply_values
+            ply_values,
+            book_format
         )
         
         # Write to file
@@ -81,7 +84,8 @@ class LaTeXGenerator:
         progressive: bool = False,
         mate_values: Optional[List[int]] = None,
         themes: Optional[List[str]] = None,
-        ply_values: Optional[List[int]] = None
+        ply_values: Optional[List[int]] = None,
+        book_format: bool = True
     ) -> str:
         """
         Create the LaTeX content for the document.
@@ -98,40 +102,73 @@ class LaTeXGenerator:
             mate_values: List of mate-in values for mixed sets
             themes: List of tactical themes to include
             ply_values: List of ply counts for tactical puzzles
+            book_format: Whether to use pocket book format
             
         Returns:
             LaTeX content as a string
         """
-        # LaTeX preamble with adjusted settings for 2x2 grid
+        # LaTeX preamble with adjusted settings for pocket book format
         latex = [
-            r"\documentclass[12pt,a4paper]{article}",
+            r"\documentclass[10pt]{article}",
             r"\usepackage[utf8]{inputenc}",
             r"\usepackage{xskak}",
             r"\usepackage{chessboard}",
-            r"\usepackage[margin=0.75in]{geometry}",  # Portrait mode with standard margins
-            r"\usepackage{multicol}",
-            r"\usepackage{titlesec}",
-            r"\usepackage{fancyhdr}",
-            r"\usepackage{lastpage}",
-            r"\usepackage{enumitem}",
-            r"\usepackage{paracol}",  # For better column control
-            r"",
-            r"\setlength{\parindent}{0pt}",
-            r"\setlength{\parskip}{6pt}",
-            r"",
-            r"% Increase headheight to avoid fancyhdr warning",
-            r"\setlength{\headheight}{15pt}",
-            r"",
-            r"\pagestyle{fancy}",
-            r"\fancyhf{}",
-            r"\fancyhead[L]{\slshape " + title + r"}",
-            r"\fancyhead[R]{\slshape Page \thepage\ of \pageref{LastPage}}",
-            r"\renewcommand{\headrulewidth}{0.4pt}",
-            r"\renewcommand{\footrulewidth}{0.4pt}",
-            r"",
+        ]
+
+        if book_format:
+            # Pocket book format settings
+            latex.extend([
+                r"\usepackage[",
+                r"    paperwidth=4.25in,",
+                r"    paperheight=6.875in,",
+                r"    top=0.5in,",
+                r"    bottom=0.5in,",
+                r"    left=0.5in,",
+                r"    right=0.5in",
+                r"]{geometry}",
+                r"\usepackage{lmodern}",
+                r"\usepackage{fancyhdr}",
+                r"\usepackage{titlesec}",
+                r"\usepackage{parskip}",
+                r"\usepackage{caption}",
+                r"\usepackage{newpxtext,newpxmath}",  # Better print font
+                r"",
+                r"% Optional: No page numbers or headers",
+                r"\pagestyle{empty}",
+                r"",
+                r"% Optional: Remove section numbers",
+                r"\titleformat{\section}[block]{\bfseries\large\filcenter}{}{0pt}{}",
+            ])
+        else:
+            # Standard format settings
+            latex.extend([
+                r"\usepackage[margin=0.75in]{geometry}",
+                r"\usepackage{multicol}",
+                r"\usepackage{titlesec}",
+                r"\usepackage{fancyhdr}",
+                r"\usepackage{lastpage}",
+                r"\usepackage{enumitem}",
+                r"\usepackage{paracol}",
+                r"",
+                r"\setlength{\parindent}{0pt}",
+                r"\setlength{\parskip}{6pt}",
+                r"",
+                r"% Increase headheight to avoid fancyhdr warning",
+                r"\setlength{\headheight}{15pt}",
+                r"",
+                r"\pagestyle{fancy}",
+                r"\fancyhf{}",
+                r"\fancyhead[L]{\slshape " + title + r"}",
+                r"\fancyhead[R]{\slshape Page \thepage\ of \pageref{LastPage}}",
+                r"\renewcommand{\headrulewidth}{0.4pt}",
+                r"\renewcommand{\footrulewidth}{0.4pt}",
+            ])
+
+        # Common settings
+        latex.extend([
             r"% Settings for the chess board",
             r"\setchessboard{",
-            r"    boardfontsize=16pt,",  # Increased from 12pt to 16pt
+            r"    boardfontsize=14pt,",  # Adjusted for pocket book
             r"    showmover=true,",
             r"    moverstyle=square,",
             r"    label=false,",
@@ -141,9 +178,6 @@ class LaTeXGenerator:
             r"    labelright=false",
             r"}",
             r"",
-            r"% Format subsection titles (puzzle headings)",
-            r"\titleformat*{\subsection}{\centering\normalfont\large\bfseries}",
-            r"",
             r"\title{" + title + r"}",
             r"\author{}",
             r"\date{\today}",
@@ -152,7 +186,7 @@ class LaTeXGenerator:
             r"",
             r"\maketitle",
             r"",
-        ]
+        ])
         
         # Create instructions based on puzzle type
         instructions = [
@@ -220,37 +254,50 @@ class LaTeXGenerator:
         ])
         
         latex.extend(instructions)
-        
-        # Add puzzles in a 2x2 grid using paracol
-        latex.extend([
-            r"\begin{paracol}{2}",
-            r"\setlength{\columnsep}{20pt}",  # Standard column separation
-            r"",
-        ])
-        
-        # Process puzzles in pairs for side-by-side layout
-        for i in range(0, len(puzzles), 2):
-            # First puzzle in the pair
-            latex.extend(self._create_puzzle_section(puzzles[i], i + 1, hide_ratings))
-            latex.append(r"\switchcolumn")  # Switch to second column
+        latex.append(r"\newpage")
+
+        if book_format:
+            # Vertical layout for pocket book format
+            for i in range(0, len(puzzles), 2):
+                # First puzzle
+                latex.extend(self._create_puzzle_section(puzzles[i], i + 1, hide_ratings))
+                latex.append(r"\vspace{1cm}")
+                
+                # Second puzzle (if it exists)
+                if i + 1 < len(puzzles):
+                    latex.extend(self._create_puzzle_section(puzzles[i + 1], i + 2, hide_ratings))
+                
+                latex.append(r"\newpage")
+        else:
+            # Original 2x2 grid layout
+            latex.extend([
+                r"\begin{paracol}{2}",
+                r"\setlength{\columnsep}{20pt}",
+                r"",
+            ])
             
-            # Second puzzle in the pair (if it exists)
-            if i + 1 < len(puzzles):
-                latex.extend(self._create_puzzle_section(puzzles[i + 1], i + 2, hide_ratings))
-                latex.append(r"\switchcolumn")  # Switch back to first column
+            for i in range(0, len(puzzles), 2):
+                latex.extend(self._create_puzzle_section(puzzles[i], i + 1, hide_ratings))
+                latex.append(r"\switchcolumn")
+                
+                if i + 1 < len(puzzles):
+                    latex.extend(self._create_puzzle_section(puzzles[i + 1], i + 2, hide_ratings))
+                    latex.append(r"\switchcolumn")
+                
+                latex.append("")
             
-            latex.append("")  # Add blank line for spacing
-        
+            latex.extend([
+                r"\end{paracol}",
+                r"",
+                r"\newpage",
+            ])
+
+        # Add solutions section
         latex.extend([
-            r"\end{paracol}",
-            r"",
-            r"\newpage",
-            r"",
             r"\section*{Solutions}",
             r"",
         ])
         
-        # Add solutions
         for i, puzzle in enumerate(puzzles, 1):
             latex.extend(self._create_solution_section(puzzle, i))
         
